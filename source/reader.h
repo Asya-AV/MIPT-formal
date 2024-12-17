@@ -1,5 +1,6 @@
 #include "parser.h"
 
+
 struct Reader {
     Grammar read() {
         Parser parser;
@@ -13,6 +14,7 @@ struct Reader {
         std::map<char, std::vector<Rule>> rules;
         std::string nonterm_symbols;
         std::string term_symbols;
+        std::unordered_set<char> generating_symb;
         
         std::cin >> nonterm_cnt >> term_cnt >> rule_cnt;
         do {
@@ -37,13 +39,25 @@ struct Reader {
 
             if (rule.second.rule_end.empty()) {
                 rules[nonterm_rule].push_back({nonterm_rule, kepsela}); 
+                generating_symb.insert(nonterm_rule);
             } else {
                 rules[nonterm_rule].push_back(rule.second);
+                bool have_nonterm = false;
+                for (auto c : rule.second.rule_end) {
+                    if (is_nonterm(c)) {
+                        have_nonterm = true;
+                        break;
+                    }
+                }
+                if (!have_nonterm) {
+                    generating_symb.insert(nonterm_rule);
+                }
             }
         }
         
         std::cin >> start_symb;
         Grammar grammar(nonterm_set, term_set, rules, start_symb);
+
         return grammar;
     }
         
