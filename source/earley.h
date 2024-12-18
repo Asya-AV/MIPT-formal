@@ -1,120 +1,144 @@
-#include <string>
-#include <map>
-#include <set>
-
 #include "reader.h"
 
 struct State {
     Rule rule;
-    size_t point_index = 0;
-    size_t index;
+    int point_index;
+    int index;
 
     State() = default;
-    State(Rule rule, 
-        size_t point_index,
-        size_t index) : rule(rule), point_index(point_index), index(index) {}
-        
-        bool operator< (const State& state) const {
-            if (index != state.index) return index < state.index;
-            if (point_index != state.point_index) return point_index < state.point_index;
-            if (rule.rule_end != state.rule.rule_end) return rule.rule_end < state.rule.rule_end;
-            return rule.rule_begin < state.rule.rule_begin;
-        }
-   
+    State(const Rule& rule, int point_index, int index) : 
+                    rule(rule), point_index(point_index), index(index) {}
 
+    bool operator==(const State& other) const = default;
+
+    struct Hash {
+        size_t operator()(const State& state) const {
+            size_t constant_1 = 1'000;
+            size_t constant_2 = 1'000'000;
+            return std::hash<char>{}(state.rule.rule_begin) +
+                    std::hash<std::string>{}(state.rule.rule_end) * constant_1 + state.index * constant_2;
+        }
+    };
+  };
+
+  struct Layer {
+    std::unordered_set<State, State::Hash> states;
+    std::map<char, std::vector<State>> states_nonterm; //states with dot before nonterminal
+    std::vector<State> ordered_states;
+    size_t index_nocomplete;
+    size_t index_nopredict;
+    bool is_changed;
+
+    Layer(): index_nocomplete(0), index_nopredict(0), is_changed(false) {}
+    
+    void Add(const State& state, const Grammar& cur_grammar) {
+        if (states.find(state) != states.end()) {
+            return;
+        }
+        states.insert(state);
+        ordered_states.push_back(state);
+        is_changed = true;
+        char noterm = state.rule.rule_end[state.point_index];
+        if (cur_grammar.nonterm_set.find(noterm) == cur_grammar.nonterm_set.end()) {
+            return;
+        }
+        states_nonterm[noterm].push_back(state);
+    }
 };
 
 
-void print_rule(Rule rule) {
-    std::cout << rule.rule_begin << "->" <<  rule.rule_end << ' ';
-}
+class Earley {
+    Grammar grammar;
+    std::vector<Layer> layers;
 
-void print_state(State state, size_t j) {
-    print_rule(state.rule);
-    std::cout << state.point_index << ' ' << state.index << ' ' << j;
-    std::cout << '\n';
-}
-
-struct Earley {
-    std::vector<std::set<State>> state_set;
-    std::string word;
-    size_t word_sz = 0;
-
-    void init(std::string input_string, Grammar cur_grammar) {
-        word = input_string;
-        word_sz = input_string.size();
-        state_set.resize(word_sz + 1);
-    }
-
-    void Scan(State state, size_t j) {
-        char next_letter = state.rule.rule_end[state.point_index];
-        if (j < word_sz && word[j] == next_letter) {
-            ++state.point_index;
-            state_set[j+1].insert(state);
-        }            
-    }
-
-    bool Predict(State state, size_t j, Grammar grammar) {
-        bool is_change = false;
-        char next_nonterm = state.rule.rule_end[state.point_index];
-        for (Rule rule : grammar.rules[next_nonterm]) {
-            State add_state({rule, 0, j});
-            size_t set_sz = state_set[j].size();
-            state_set[j].insert(add_state);
-            if (set_sz != state_set[j].size()) {
-                is_change = true;
+    void Scan(int layer_number, const std::string& input_string) {
+        for (auto state : layers[layer_number].states) {
+            int dot_pos = state.point_index;
+            if (dot_pos == state.rule.rule_end.size() || layer_number == layers.size() - 1) {
+                continue;
+            }
+            
+            char cur_latter = state.rule.rule_end[dot_pos];
+            if (grammar.term_set.find(cur_latter) != grammar.term_set.end()) {
+                if (cur_latter != input_string[layer_number]) {
+                    continue;
+                }
+                
+                State new_state = state;
+                new_state.point_index += 1;
+                layers[layer_number + 1].Add(new_state, grammar);
             }
         }
-        return is_change;
     }
 
-    bool Complete(State state, size_t j) {
-        bool is_change = false;
-        size_t k = state.index;
-        for (State state_k : state_set[k]) {
-            if (state_k.rule.rule_end[state.point_index] != state.rule.rule_begin) continue;
-            if (state_k.point_index == state_k.rule.rule_end.size()) continue;
-            ++state_k.point_index;
-            size_t set_sz = state_set[j].size();
-            state_set[j].insert(state_k);
-            if (set_sz != state_set[j].size()) {
-                is_change = true;
+    void Predict(int layer_number, const std::string& input_string) {
+        Layer& layer = layers[layer_number];
+        std::vector<State>& states = layer.ordered_states;
+
+        for (size_t i = layer.index_nopredict; i < states.size(); ++i) {
+            int dot_pos = states[i].point_index;
+            if (dot_pos == states[i].rule.rule_end.size()) {
+                continue;
             }
-        }
-        return is_change;
-    }
-
-    bool check(std::string input_string, Grammar grammar) {
-        init(input_string, grammar); 
-        Rule start_rule({kstart_terminal, grammar.start_nonterm});
-        State start_state(start_rule, 0, 0);
-        state_set[0].insert(start_state);
-
-        for (size_t j = 0; j < word_sz; ++j) {
-            bool comp_fl = true;
-            bool pred_fl = true;
-            while (comp_fl || pred_fl) {
-                comp_fl = false;
-                pred_fl = false;
-                for (auto state : state_set[j]) {
-                    if (state.rule.rule_end == kepsela) {
-                        comp_fl = Complete(state, j);
-                        continue;
-                    }
-                    if (state.point_index != state.rule.rule_end.size()) {
-                        char next_letter = state.rule.rule_end[state.point_index];
-                        if (is_nonterm(next_letter)) {
-                            pred_fl = Predict(state, j, grammar);
-                        } else {
-                            Scan(state, j);
-                        }
-                    } else {
-                        comp_fl = Complete(state, j);
-                    }
+            int curr_noterm = states[i].rule.rule_end[dot_pos];
+            if(grammar.nonterm_set.find(curr_noterm) != grammar.nonterm_set.end()) {
+                for (auto rule : grammar.rules[curr_noterm]) {
+                    State new_state(Rule(curr_noterm, rule.rule_end), 0, layer_number);
+                    layer.Add(new_state, grammar);
                 }
             }
         }
-        State finish_state({kstart_terminal, grammar.start_nonterm}, 0, word_sz);
-        return (state_set[word_sz].find(finish_state) != state_set[word_sz].end());
+        layer.index_nopredict = states.size();
+    }
+
+    void Complete(int layer_number, const std::string& input_string) {
+        Layer& layer = layers[layer_number];
+        std::vector<State>& states = layer.ordered_states;
+
+        for (size_t i = layer.index_nocomplete; i < states.size(); ++i) {
+            int dot_pos = states[i].point_index;
+            if (dot_pos != states[i].rule.rule_end.size()) {
+                continue;
+            }
+
+            char noterm = states[i].rule.rule_begin;
+            int l = states[i].index;
+                for (auto old_state : layers[l].states_nonterm[noterm]) {
+                State new_state = old_state;
+                new_state.point_index += 1;
+                layer.Add(new_state, grammar);
+            }
+        }
+        layer.index_nocomplete = states.size();
+    }
+
+public:
+
+    Earley() = default;
+
+    void Check(const std::string& input_string, Grammar cur_grammar) {
+        grammar = cur_grammar;
+        grammar.rules[kstart_terminal].push_back(Rule(kstart_terminal, std::string(1, grammar.start_nonterm)));
+        int word_sz = input_string.size();
+        layers = std::vector<Layer>(word_sz + 1);
+        Rule start_rule({kstart_terminal, grammar.start_nonterm});
+        State start_state(start_rule, 0, 0);
+
+        layers[0].Add(start_state, grammar);
+        for (size_t i = 0; i <= word_sz; ++i) {
+            while(layers[i].is_changed) {
+                layers[i].is_changed = false;
+                Predict(i, input_string);
+                Complete(i, input_string);
+            }
+            Scan(i, input_string);
+        }
+
+        State finish_state(Rule(kstart_terminal, std::string(1, grammar.start_nonterm)), 1, 0);
+        if (layers[word_sz].states.find(finish_state) != layers[word_sz].states.end()) {
+            std::cout << "Yes\n";
+        } else {
+            std::cout << "No\n";
+        }
     }
 };

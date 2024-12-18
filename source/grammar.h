@@ -1,25 +1,27 @@
 #include <iostream>
-#include <vector>
-#include <unordered_set>
+#include <string>
 #include <map>
+#include <unordered_set>
+#include <vector>
+#include <string>
+
 
 const int kmax_word_size = 10000000;
-static const char kstart_terminal = '@';
-const char* kepsela = "epsela"; //static
+const char kstart_terminal = '@';
+const char kepsela = '_';
+static const std::string kSeparator = "->";
 
-struct Rule {
+struct Rule{
     char rule_begin;
     std::string rule_end;
-    
-    Rule();
-    Rule (char rule_begin,
-        char rule_end) : rule_begin(rule_begin), rule_end(std::string({rule_end})) {}
-    Rule (char rule_begin,
-        std::string rule_end) : rule_begin(rule_begin), rule_end(rule_end) {}
+
+    Rule() {}
+    Rule (char rule_begin, char rule_end) : rule_begin(rule_begin), rule_end(std::string({rule_end})) {}
+    Rule (char rule_begin, std::string rule_end) : rule_begin(rule_begin), rule_end(rule_end) {}
+    bool operator==(const Rule& other) const = default;
 };
 
 struct Grammar{ // G = <N, Sigma, P, S>
-
     std::unordered_set<char> nonterm_set;
     std::unordered_set<char> term_set;
     std::map<char, std::vector<Rule>> rules;

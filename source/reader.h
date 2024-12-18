@@ -1,9 +1,9 @@
 #include "parser.h"
 
-struct Reader {
-    Grammar read() {
-        Parser parser;
+struct Reader{
 
+    Grammar Parse() {
+        Parser parser;
         size_t nonterm_cnt;
         size_t term_cnt;
         size_t rule_cnt;
@@ -27,24 +27,17 @@ struct Reader {
 
         for (size_t i = 0; i < rule_cnt; ++i) {
             std::string raw_rule;
-
             do {
                 std::getline(std::cin, raw_rule); 
             } while (raw_rule.size() == 0);
 
             auto rule = parser.parse_rule(raw_rule);
-            char nonterm_rule = rule.first;
-
-            if (rule.second.rule_end.empty()) {
-                rules[nonterm_rule].push_back({nonterm_rule, kepsela}); 
-            } else {
-                rules[nonterm_rule].push_back(rule.second);
-            }
+            char nonterm_rule = rule.first[0];
+            rules[nonterm_rule].push_back(Rule(nonterm_rule, rule.second));
         }
-        
+
         std::cin >> start_symb;
         Grammar grammar(nonterm_set, term_set, rules, start_symb);
         return grammar;
     }
-        
 };

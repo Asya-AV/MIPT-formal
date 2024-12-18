@@ -1,3 +1,3 @@
 #!/bin/bash
-g++ main.cpp -o compiled
+g++ -std=c++20 main.cpp -o compiled
 ./compiled

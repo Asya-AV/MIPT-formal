@@ -1,17 +1,10 @@
-#include <cctype>
-#include <unordered_set>
-#include <string>
-#include <vector>
-
 #include "grammar.h"
 
-bool is_nonterm(char letter) {
-    return (bool)std::isupper(letter);
-}
-
-
 struct Parser {
-    std::unordered_set<char> parse_terms(size_t cnt, std::string str, bool is_nonterm_fl) {
+    static bool is_nonterm(char letter) {
+        return (bool)std::isupper(letter);
+    }
+    static std::unordered_set<char> parse_terms(size_t cnt, std::string str, bool is_nonterm_fl) {
         std::unordered_set<char> terms_set;
         for (auto letter : str) {
             if (is_nonterm(letter) != is_nonterm_fl) {
@@ -25,7 +18,7 @@ struct Parser {
         return terms_set;
     }
 
-    std::pair<char, Rule> parse_rule(std::string rule) {
+    static std::pair<std::string, std::string> parse_rule(std::string rule) {
         size_t cur_cnt = 0;
         std::vector<std::string> ret_rule(2);
         size_t cur_ind = 0;
@@ -33,7 +26,7 @@ struct Parser {
         for (size_t i = 0; i < sz; ++i) {
             if (rule[i] == '-' && i + 1 < sz && rule[i+1] == '>') {
                 ++i;
-                cur_ind++;
+                ++cur_ind;
                 continue;
             }
             if (rule[i] != ' ') {
@@ -43,6 +36,6 @@ struct Parser {
                 ret_rule[cur_ind] += rule[i];
             }
         }
-        return {ret_rule[0][0], {ret_rule[0][0], ret_rule[1]}};
+        return {ret_rule[0], ret_rule[1]};
     }
 };
