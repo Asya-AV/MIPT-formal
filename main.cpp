@@ -6,9 +6,7 @@
 int main() {
     Reader reader;
     Grammar grammar = reader.read();
-    grammar.print_grammar();
-    return 0;
-
+    std::cout << "I have read it\n";
     Cyk cyk;
     size_t cnt_of_words;
     std::cin >> cnt_of_words;

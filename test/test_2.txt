@@ -1,3 +1,16 @@
+4 2 9
+ABCD
+ab
+A->AB
+A->a
+A->b
+B->b
+C->a
+D->b
+A->CA
+A->DB
+B->DB
+A
 10
 ab
 aaaaabbbbb

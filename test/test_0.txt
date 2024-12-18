@@ -1,0 +1,15 @@
+5 2 8
+ABCDE
+ab
+A->BC
+C->AD
+C->EA
+C->b
+D->EA
+D->b
+B->a
+E->b
+A
+2
+aababb
+aabbba
